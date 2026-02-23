@@ -11,27 +11,28 @@ jobs:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
 
-      # STEP 1: Fast Dependency Check (30-40 seconds)
+      # STEP 1: Fast Dependency Check
       - name: Check Dependencies
         id: step_pub
         continue-on-error: true
         run: flutter pub get 2> error_pub.txt
 
-      # STEP 2: Static Analysis (Fast Review)
+      # STEP 2: Static Analysis
       - name: Analyze Code
         id: step_analyze
         if: steps.step_pub.outcome == 'success'
         continue-on-error: true
         run: flutter analyze > error_analyze.txt
 
-      # STEP 3: Full Build (The heavy part)
+      # STEP 3: Full Build (APK)
       - name: Build APK
         id: step_build
         if: steps.step_analyze.outcome == 'success'
@@ -40,25 +41,37 @@ jobs:
 
       # AI INTERVENTION: Runs if any of the above failed
       - name: AI Fixer
-        if: failure() || steps.step_pub.outcome == 'failure' || steps.step_analyze.outcome == 'failure' || steps.step_build.outcome == 'failure'
+        if: failure()
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pip install -q groq
-          # Combine available logs
+          
+          # Create empty files if they don't exist to prevent 'cat' error
+          touch error_pub.txt error_analyze.txt error_build.txt
+          
+          # Combine all logs into one for AI
           cat error_pub.txt error_analyze.txt error_build.txt > combined_log.txt
           ERROR_MSG=$(cat combined_log.txt)
           
+          # Run the debugger script
           python3 ai_debugger.py "$ERROR_MSG"
           
-          # Git & PR Logic
+          # Git Automation
           git config --global user.name "ai-bot"
           git config --global user.email "ai-bot@github.com"
+          
+          # Create unique branch using Run ID
           BRANCH_NAME="ai-fix-${{ github.run_id }}"
           git checkout -b $BRANCH_NAME
           git add .
           git commit -m "🤖 AI: Master Fix for Build/Config error"
           git push origin $BRANCH_NAME
           
-          gh pr create --title "🤖 AI Master Fix" --body "I've analyzed the logs and fixed the configuration/code issues." --base main --head $BRANCH_NAME
+          # Create Pull Request
+          gh pr create \
+            --title "🤖 AI Master Fix: #${{ github.run_number }}" \
+            --body "I analyzed the logs and applied a fix. Please review and merge." \
+            --base main \
+            --head $BRANCH_NAME
