@@ -39,39 +39,43 @@ jobs:
         continue-on-error: true
         run: flutter build apk --release 2> error_build.txt
 
-      # AI INTERVENTION: Runs if any of the above failed
+      # AI INTERVENTION: Triggered if any previous step actually failed
       - name: AI Fixer
-        if: failure()
+        if: |
+          always() && 
+          (steps.step_pub.outcome == 'failure' || 
+           steps.step_analyze.outcome == 'failure' || 
+           steps.step_build.outcome == 'failure')
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pip install -q groq
           
-          # Create empty files if they don't exist to prevent 'cat' error
+          # Empty files create karna taaki 'cat' crash na ho
           touch error_pub.txt error_analyze.txt error_build.txt
           
-          # Combine all logs into one for AI
+          # Logs ko combine karna
           cat error_pub.txt error_analyze.txt error_build.txt > combined_log.txt
           ERROR_MSG=$(cat combined_log.txt)
           
-          # Run the debugger script
+          # Debugger script chalana
           python3 ai_debugger.py "$ERROR_MSG"
           
           # Git Automation
           git config --global user.name "ai-bot"
           git config --global user.email "ai-bot@github.com"
           
-          # Create unique branch using Run ID
+          # Unique branch banana
           BRANCH_NAME="ai-fix-${{ github.run_id }}"
           git checkout -b $BRANCH_NAME
           git add .
           git commit -m "🤖 AI: Master Fix for Build/Config error"
           git push origin $BRANCH_NAME
           
-          # Create Pull Request
+          # PR Create karna
           gh pr create \
-            --title "🤖 AI Master Fix: #${{ github.run_number }}" \
+            --title "🤖 AI Master Fix: Run #${{ github.run_number }}" \
             --body "I analyzed the logs and applied a fix. Please review and merge." \
             --base main \
             --head $BRANCH_NAME
