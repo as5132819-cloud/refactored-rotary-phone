@@ -10,4 +10,35 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.2
-  fake_library_xyz: ^9.9.9  # Ye library exist nahi karti, 'pub get' fail hoga
+
+FILE: lib/main.dart
+import 'package:flutter/material.dart';
+
+void main() {
+  runApp(MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: Scaffold(
+        appBar: AppBar(title: Text("AI Auto Fix Test")),
+        body: Center(
+          child: Text("Galti pakdo.");
+        ),
+      ),
+    );
+  }
+}
+
+FILE: android/app/src/main/AndroidManifest.xml
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application
+    android:label="my_ai_test"
+    android:icon="@mipmap/ic_launcher">
+    <activity
+      android:name=".MainActivity"
+      android:exported="true" />
+  </application>
+</manifest>
