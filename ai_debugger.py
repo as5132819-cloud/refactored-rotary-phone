@@ -2,6 +2,7 @@ import os
 import sys
 from groq import Groq
 
+# Initialize Groq
 client = Groq(api_key=os.environ.get('GROQ_API_KEY'))
 
 def get_content(path):
@@ -9,16 +10,17 @@ def get_content(path):
         with open(path, 'r') as f: return f.read()
     return "Not Found"
 
-# Context ikatha karna
-error_log = sys.argv[1] if len(sys.argv) > 1 else "No logs"
+# Collecting Context
+error_log = sys.argv[1] if len(sys.argv) > 1 else "No logs found"
 pubspec = get_content("pubspec.yaml")
 manifest = get_content("android/app/src/main/AndroidManifest.xml")
 
 prompt = f"""
 Flutter Build Error Analysis:
-ERROR: {error_log}
+ERROR LOG:
+{error_log}
 
-FILES CONTEXT:
+CONTEXT FILES:
 1. pubspec.yaml:
 {pubspec}
 
@@ -26,9 +28,13 @@ FILES CONTEXT:
 {manifest}
 
 TASK:
-1. Identify if the fix is needed in pubspec.yaml, AndroidManifest.xml, or a Dart file.
-2. Return ONLY the corrected code of the file that needs fixing.
-3. Start the response with 'FILE: path/to/file' so I can save it.
+Identify the file causing the error (Dart code, pubspec, or AndroidManifest).
+Return ONLY the corrected code of that file.
+The first line MUST be: 'FILE: path/to/file'
+Example:
+FILE: pubspec.yaml
+name: my_app
+...
 """
 
 try:
@@ -39,17 +45,19 @@ try:
     
     response = completion.choices[0].message.content.strip()
     
-    # Logic to extract filename and content
+    # Extracting file path and new content
     if response.startswith("FILE:"):
         lines = response.split('\n')
         target_file = lines[0].replace("FILE:", "").strip()
-        new_content = "\n".join(lines[1:]).replace("```", "") # Remove code blocks if AI adds them
+        # Clean up code blocks if AI added them
+        new_content = "\n".join(lines[1:]).replace("```yaml", "").replace("```dart", "").replace("```xml", "").replace("```", "")
         
         with open(target_file, "w") as f:
-            f.write(new_content)
-        print(f"✅ AI fixed: {target_file}")
+            f.write(new_content.strip())
+        print(f"✅ AI successfully updated: {target_file}")
     else:
-        print("❌ AI response format was unexpected.")
+        print("❌ AI response was not in the correct format (Missing FILE: tag).")
 
 except Exception as e:
-    print(f"❌ Error: {e}")
+    print(f"❌ Critical Error in AI Debugger: {e}")
+    sys.exit(1)
