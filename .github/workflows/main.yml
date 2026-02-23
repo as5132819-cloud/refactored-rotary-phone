@@ -1,1 +1,64 @@
+name: Flutter_Master_AutoFix
 
+on: [push]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  smart-debug:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      # STEP 1: Fast Dependency Check (30-40 seconds)
+      - name: Check Dependencies
+        id: step_pub
+        continue-on-error: true
+        run: flutter pub get 2> error_pub.txt
+
+      # STEP 2: Static Analysis (Fast Review)
+      - name: Analyze Code
+        id: step_analyze
+        if: steps.step_pub.outcome == 'success'
+        continue-on-error: true
+        run: flutter analyze > error_analyze.txt
+
+      # STEP 3: Full Build (The heavy part)
+      - name: Build APK
+        id: step_build
+        if: steps.step_analyze.outcome == 'success'
+        continue-on-error: true
+        run: flutter build apk --release 2> error_build.txt
+
+      # AI INTERVENTION: Runs if any of the above failed
+      - name: AI Fixer
+        if: failure() || steps.step_pub.outcome == 'failure' || steps.step_analyze.outcome == 'failure' || steps.step_build.outcome == 'failure'
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pip install -q groq
+          # Combine available logs
+          cat error_pub.txt error_analyze.txt error_build.txt > combined_log.txt
+          ERROR_MSG=$(cat combined_log.txt)
+          
+          python3 ai_debugger.py "$ERROR_MSG"
+          
+          # Git & PR Logic
+          git config --global user.name "ai-bot"
+          git config --global user.email "ai-bot@github.com"
+          BRANCH_NAME="ai-fix-${{ github.run_id }}"
+          git checkout -b $BRANCH_NAME
+          git add .
+          git commit -m "🤖 AI: Master Fix for Build/Config error"
+          git push origin $BRANCH_NAME
+          
+          gh pr create --title "🤖 AI Master Fix" --body "I've analyzed the logs and fixed the configuration/code issues." --base main --head $BRANCH_NAME
