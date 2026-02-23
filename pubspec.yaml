@@ -10,4 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.2
-  fake_library_xyz: ^9.9.9  # Ye library exist nahi karti, 'pub get' fail hoga
+  # fake_library_xyz: ^9.9.9  # This library does not exist, so it's commented out
+
+# If you need a specific library, ensure it exists on pub.dev and use the correct version. For example:
+#  another_library: ^1.2.3
